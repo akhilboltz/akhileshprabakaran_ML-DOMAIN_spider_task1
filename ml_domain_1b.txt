@@ -7,6 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/1bIz2mzMIghdeZ6RNHlkPYDfnLj2zqm3_
 """
 
+#import necessary library for project
+
 import random as rd
 import pandas as pd
 import numpy as np
@@ -19,6 +21,8 @@ from nltk.stem import PorterStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+#uploading the kaggle dataset using API token
+
 !pip install -q kaggle
 from google.colab import files
 files.upload()
@@ -30,28 +34,42 @@ files.upload()
 !unzip -q tmdb-movie-metadata.zip
 !ls -F
 
+#creating movies and credits dataframe and merging them into data dataframes on the basis of the title column
+
 movies = pd.read_csv('tmdb_5000_movies.csv')
 credits = pd.read_csv('tmdb_5000_credits.csv')
 movies = [['id','title','overview','genres','keywords','cast','crew']]
 credits = [['id','title','cast','crew']]
 data = movies.merge(credits,on='title')
 
+#converting dict_to_list because columns like genres and keywords are in dictionary format and list are easier to manipulate
+
 def convert_dict_to_list(data):
   return [i['name'] for i in ast.literal_eval(data)]
+
+#get the director name from crew d
 
 def get_director(data):
   return [i['name'] for i in ast.literal_eval(data) if i['job']=='Director']
 
+#get the cast details
+
 def get_cast(data):
   return [i['name'] for i in ast.literal_eval(data)]
 
+#get the genre 
+
 def get_genres(data):
   return [i['name'] for i in ast.literal_eval(data)]
+
+#applying the above methods on genre,keyword,cast,crew
 
 movies['genres'] = movies['genres'].apply(convert_dict_to_list)
 movies['keywords'] = movies['keywords'].apply(convert_dict_to_list)
 movies['cast'] = movies['cast'].apply(get_cast)
 movies['crew'] = movies['crew'].apply(get_director)
+
+#defining tokenize, remove_stopwords , stemmer ,remove_space
 
 def remove_spaces(data):
   return [i.replace(" ","") for i in data]
@@ -66,6 +84,9 @@ def stemmer(data):
   stemmer = PorterStemmer()
   return [stemmer.stem(i) for i in data]
 
+#input a column tags and add all the wording column into it
+#implementing tokenization ,removing stopwords ,stemmerization and converting it to string
+
 movies['tags'] = movies['overview'] + movies['genres'] + movies['keywords'] + movies['cast'] + movies['crew']
 movies['tags'] = movies['tags'].apply(lambda x:" ".join(x))
 movies['tags'] = movies['tags'].apply(lambda x: x.lower())
@@ -74,9 +95,13 @@ movies['tags'] = movies['tags'].apply(remove_stopwords)
 movies['tags'] = movies['tags'].apply(stemmer)
 movies['tags'] = movies['tags'].apply(lambda x:" ".join(x))
 
+#converting to vector and initializing cosine similarity
+
 vectorizer = TfidfVectorizer()
 vectors = vectorizer.fit_transform(movies['tags'])
 similarity = cosine_similarity(vectors)
+
+#writing a recommend function to recommend movies by implementing cosine similarity, then finding the top 5-10 movies with highest probability from the similarity
 
 def recommend(movie):
   movie_index = None
@@ -92,4 +117,3 @@ def recommend(movie):
     distances = similarity[movie_index]
     movies_list = sorted(list(enumerate(distances)),reverse=True,key=lambda x:x[1])[1:rd.randint(5,11)]
     return [movies['title'][i[0]] for i in movies_list]
-
