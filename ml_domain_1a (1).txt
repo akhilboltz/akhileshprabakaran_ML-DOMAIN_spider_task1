@@ -7,6 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/14xgOyXnF_tUbuOImiAanmLqOXkjqXghA
 """
 
+#import necessary library modules
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -17,7 +19,9 @@ import os
 import pickle
 import pandas as pd
 
-!pip install -q kaggle
+#uploading kaggle datasets using API token
+
+!pip install -q kaggle                         
 from google.colab import files
 files.upload()
 ! mkdir ~/.kaggle
@@ -28,23 +32,41 @@ files.upload()
 !unzip -q emnist.zip
 !ls -F /content/emnist
 
-
+#creating test and train dataframes and segregating the train dataframe into train and validation dataframe
 
 train_dir = "/content/emnist-balanced-train.csv"
 test_dir = "/content/emnist-balanced-test.csv"
 
-train_dataset = pd.read_csv(train_dir)
-test_dataset = pd.read_csv(test_dir)
-
+train_dataset_df = pd.read_csv(train_dir)
+test_dataset_df = pd.read_csv(test_dir)
 #print(train_dataset.head())
 #print(train_dataset.shape)
 #print(test_dataset.shape)
+
+#creating a class to convert the dataframes into tensors for proper dataset
+
+class EMNIST_transform(dataframe):
+  def __init__(self):
+    self.x = dataframe.iloc[:,1:].values.to_numpy().reshape(-1,28,28).astype('float32')
+    self.x /= 255
+    self.y = dataframe.iloc[:,0].values.to_numpy()
+  def __len__(self):
+    return len(self.x)
+  def __getitem__(self, idx):
+    return self.x[idx], self.y[idx]
+
+train_dataset = EMNIST_transform(train_dataset_df)
+val_dataset = EMNIST_transform(val_dataset_df)
+test_dataset = EMNIST_transform(test_dataset_df)
+
+#loading data using datloader
 
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 val_dataset = DataLoader(val_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=True)
 
-#Create a CNN module for model
+#Create a CNN module for model as mentioned 
+
 class CNNmodel(nn.Module):
   def __init__(self):
     super(CNNmodel, self).__init__()
@@ -70,9 +92,13 @@ class CNNmodel(nn.Module):
     x = torch.cat((l, self.right(x)), dim=1)
     return x
 
+#updating model,loss function and optimizer for backpropagation
+
 model = CNNmodel().to('cuda'if torch.cuda.is_available() else 'cpu')
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.01)
+
+#training the data and validating the data and updating all the loss and accuracy into the list for each iteration or epoch
 
 epoch = 5
 train_loss = []
@@ -111,6 +137,8 @@ for i in range(epoch):
     val_acc.append(accuracy / total)
   print(f"Train Loss  : {train_loss}")
 
+#plotting the graph LOSS vs EPOCH and ACC vs EPOCH side-by-side (using subplot) and showing them
+
 plt.figure(figsize=(20,20))
 
 plt.subplot(1,2,1)
@@ -127,6 +155,8 @@ plt.legend()
 
 plt.show()
 
+#testing the data from test_loader,creating a list to incorporate all the predicted value. change runtime to cpu and change to numpy to work easier with .csv file 
+
 model.eval()
 with torch.inference():
   pred_list=[]
@@ -136,6 +166,8 @@ with torch.inference():
     loss = loss_fn(pred, y)
     _, predicted = torch.max(pred.data, 1)
     pred_list.extend(predicted.cpu().numpy())
+
+#saving the folder into submission.csv
 
 df = pd.DataFrame({'Input':np.arange(len(pred_list)),'prediction': pred_list})
 df.to_csv('submission.csv', index=False)
